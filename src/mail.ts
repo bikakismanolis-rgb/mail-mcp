@@ -7,6 +7,7 @@ import type { Account } from "./config.js";
 import { getAccessToken } from "./oauth.js";
 
 const MAX_SOURCE_BYTES = 4_000_000;
+const LOCAL_SCAN_LIMIT = 1500;
 
 /** Turns library errors into something a person can act on. Never includes secrets. */
 export function explainError(err: unknown): string {
@@ -207,13 +208,21 @@ export async function senderStats(
       filterLocally = true;
     }
     const uids = found.sort((a, b) => a - b);
-    const page = uids.slice(-p.maxMessages);
+    // The local scan downloads whole header blocks (those servers also ignore
+    // requests for a single header field), so it looks at fewer messages.
+    const page = uids.slice(-(filterLocally ? Math.min(p.maxMessages, LOCAL_SCAN_LIMIT) : p.maxMessages));
     const senders = new Map<string, SenderStats & { latestUid: number }>();
     let counted = 0;
     if (page.length) {
       const rows = await client.fetchAll(
         page,
-        { uid: true, envelope: true, flags: true, internalDate: true, headers: ["list-unsubscribe"] },
+        {
+          uid: true,
+          envelope: true,
+          flags: true,
+          internalDate: true,
+          headers: filterLocally ? true : ["list-unsubscribe"],
+        },
         { uid: true },
       );
       for (const m of rows) {
