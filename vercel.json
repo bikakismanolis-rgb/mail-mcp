@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/mcp/:token", "destination": "/api/mcp?token=:token" },
+    { "source": "/setup/:token", "destination": "/api/mcp?token=:token&setup=1" }
+  ]
+}
