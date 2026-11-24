@@ -7,7 +7,7 @@ import type { Account } from "./config.js";
 import { getAccessToken } from "./oauth.js";
 
 const MAX_SOURCE_BYTES = 4_000_000;
-const LOCAL_SCAN_LIMIT = 1500;
+const LOCAL_SCAN_LIMIT = 600;
 
 /** Turns library errors into something a person can act on. Never includes secrets. */
 export function explainError(err: unknown): string {
@@ -190,14 +190,16 @@ export type SenderStats = {
  */
 export async function senderStats(
   account: Account,
-  p: { folder: string; since?: string; newslettersOnly: boolean; maxMessages: number },
+  p: { folder: string; since?: string; before?: string; newslettersOnly: boolean; maxMessages: number },
 ) {
   const criteria: SearchObject = {};
   if (p.newslettersOnly) criteria.header = { "list-unsubscribe": true };
   if (p.since) criteria.since = toDate(p.since, "since");
+  if (p.before) criteria.before = toDate(p.before, "before");
   if (Object.keys(criteria).length === 0) criteria.all = true;
 
   return withMailbox(account, p.folder, async (client) => {
+    let oldest: Date | undefined;
     let found = (await client.search(criteria, { uid: true })) || [];
     // Some servers (Yahoo) answer a header-existence search with nothing. Then
     // scan everything and keep the messages that carry the header ourselves.
@@ -228,6 +230,8 @@ export async function senderStats(
       for (const m of rows) {
         const header = (m.headers?.toString() ?? "").replace(/\r?\n\s+/g, " ");
         const unsubscribe = /^list-unsubscribe:\s*(.+)$/im.exec(header)?.[1]?.trim();
+        const received = new Date((m.internalDate ?? m.envelope?.date ?? Date.now()) as Date | string);
+        if (!oldest || received < oldest) oldest = received;
         if (filterLocally && !unsubscribe) continue;
         counted += 1;
         const from = m.envelope?.from?.[0];
@@ -256,6 +260,8 @@ export async function senderStats(
       matched: filterLocally ? counted : uids.length,
       analysed: page.length,
       truncated: uids.length > page.length,
+      /** Date of the oldest message looked at; pass it as `before` to continue further back. */
+      oldestAnalysed: oldest?.toISOString().slice(0, 10),
       senders: list,
     };
   });

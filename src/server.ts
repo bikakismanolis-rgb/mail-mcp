@@ -164,6 +164,7 @@ export function buildServer(config: Config) {
         account: accountArg,
         folder: z.string().default("INBOX"),
         since: z.string().optional().describe("ISO date; only count messages from this date on"),
+        before: z.string().optional().describe("ISO date; only count messages before it. To go further back when `truncated` is true, call again with before = the previous `oldestAnalysed`"),
         newsletters_only: z.boolean().default(true),
         never_opened_only: z.boolean().default(false),
         min_messages: z.number().int().min(1).default(1),
@@ -177,6 +178,7 @@ export function buildServer(config: Config) {
         const res = await mail.senderStats(pick(a.account), {
           folder: a.folder,
           since: a.since,
+          before: a.before,
           newslettersOnly: a.newsletters_only,
           maxMessages: a.max_messages,
         });
@@ -190,6 +192,7 @@ export function buildServer(config: Config) {
           matched: res.matched,
           analysed: res.analysed,
           truncated: res.truncated,
+          oldestAnalysed: res.oldestAnalysed,
           sendersFound: kept.length,
           senders: kept.slice(0, a.limit),
         };
