@@ -197,10 +197,19 @@ export async function senderStats(
   if (Object.keys(criteria).length === 0) criteria.all = true;
 
   return withMailbox(account, p.folder, async (client) => {
-    const found = await client.search(criteria, { uid: true });
-    const uids = (found || []).sort((a, b) => a - b);
+    let found = (await client.search(criteria, { uid: true })) || [];
+    // Some servers (Yahoo) answer a header-existence search with nothing. Then
+    // scan everything and keep the messages that carry the header ourselves.
+    let filterLocally = false;
+    if (p.newslettersOnly && found.length === 0) {
+      const { header: _header, ...rest } = criteria;
+      found = (await client.search(Object.keys(rest).length ? rest : { all: true }, { uid: true })) || [];
+      filterLocally = true;
+    }
+    const uids = found.sort((a, b) => a - b);
     const page = uids.slice(-p.maxMessages);
     const senders = new Map<string, SenderStats & { latestUid: number }>();
+    let counted = 0;
     if (page.length) {
       const rows = await client.fetchAll(
         page,
@@ -208,6 +217,10 @@ export async function senderStats(
         { uid: true },
       );
       for (const m of rows) {
+        const header = (m.headers?.toString() ?? "").replace(/\r?\n\s+/g, " ");
+        const unsubscribe = /^list-unsubscribe:\s*(.+)$/im.exec(header)?.[1]?.trim();
+        if (filterLocally && !unsubscribe) continue;
+        counted += 1;
         const from = m.envelope?.from?.[0];
         const address = (from?.address ?? "unknown").toLowerCase();
         const s =
@@ -221,9 +234,7 @@ export async function senderStats(
           const when = m.envelope?.date ?? m.internalDate;
           s.latest = when ? new Date(when as Date | string).toISOString().slice(0, 10) : undefined;
           s.latestSubject = m.envelope?.subject;
-          const header = (m.headers?.toString() ?? "").replace(/\r?\n\s+/g, " ");
-          const value = /^list-unsubscribe:\s*(.+)$/im.exec(header)?.[1]?.trim();
-          s.unsubscribe = value ? value.slice(0, 300) : undefined;
+          s.unsubscribe = unsubscribe ? unsubscribe.slice(0, 300) : undefined;
         }
         senders.set(address, s);
       }
@@ -232,7 +243,8 @@ export async function senderStats(
       .map(({ latestUid: _latestUid, ...s }) => ({ ...s, neverOpened: s.unread === s.total }))
       .sort((a, b) => b.total - a.total);
     return {
-      matched: uids.length,
+      /** Messages scanned, and how many of those were counted (bulk mail when filtering). */
+      matched: filterLocally ? counted : uids.length,
       analysed: page.length,
       truncated: uids.length > page.length,
       senders: list,
