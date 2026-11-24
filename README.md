@@ -13,6 +13,7 @@ You run it in your own hosting account. Your passwords and mail never pass throu
 | `list_accounts`, `list_folders` | See which mailboxes and folders exist |
 | `search_emails` | Latest messages, or search by text, sender, subject, date, unread |
 | `read_email` | Text and attachment names of one message |
+| `sender_stats` | Messages per sender and how many you never opened, for newsletter cleanup |
 | `create_draft` | Save a new message or a reply to Drafts. Nothing is sent |
 | `mark_emails`, `move_emails` | Read/unread, star, move, archive, trash |
 | `send_email` | Only exists if you set `MAIL_ALLOW_SEND=true` |

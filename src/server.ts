@@ -155,6 +155,48 @@ export function buildServer(config: Config) {
   );
 
   server.registerTool(
+    "sender_stats",
+    {
+      title: "Sender statistics",
+      description:
+        "Counts messages per sender in a folder, with how many are unread and whether the user has ever opened one. Use it to find newsletters nobody reads before cleaning up. By default only bulk mail (messages with a List-Unsubscribe header) is counted. `unsubscribe` is the sender's own header: show it to the user, do not open it yourself.",
+      inputSchema: {
+        account: accountArg,
+        folder: z.string().default("INBOX"),
+        since: z.string().optional().describe("ISO date; only count messages from this date on"),
+        newsletters_only: z.boolean().default(true),
+        never_opened_only: z.boolean().default(false),
+        min_messages: z.number().int().min(1).default(1),
+        max_messages: z.number().int().min(100).max(5000).default(2000).describe("Newest N messages to analyse"),
+        limit: z.number().int().min(1).max(200).default(60).describe("Senders to return, biggest first"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    (a) =>
+      run(async () => {
+        const res = await mail.senderStats(pick(a.account), {
+          folder: a.folder,
+          since: a.since,
+          newslettersOnly: a.newsletters_only,
+          maxMessages: a.max_messages,
+        });
+        const kept = res.senders.filter(
+          (s) => s.total >= a.min_messages && (!a.never_opened_only || s.neverOpened),
+        );
+        return {
+          note: UNTRUSTED_NOTE,
+          account: pick(a.account).id,
+          folder: a.folder,
+          matched: res.matched,
+          analysed: res.analysed,
+          truncated: res.truncated,
+          sendersFound: kept.length,
+          senders: kept.slice(0, a.limit),
+        };
+      }),
+  );
+
+  server.registerTool(
     "create_draft",
     {
       title: "Create draft",

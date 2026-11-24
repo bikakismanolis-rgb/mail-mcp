@@ -169,6 +169,77 @@ export async function searchEmails(account: Account, p: SearchParams) {
   });
 }
 
+export type SenderStats = {
+  address: string;
+  name?: string;
+  total: number;
+  unread: number;
+  /** True when not a single message from this sender has been opened. */
+  neverOpened: boolean;
+  latest?: string;
+  latestSubject?: string;
+  /** Value of the List-Unsubscribe header of the newest message, if any. */
+  unsubscribe?: string;
+};
+
+/**
+ * Groups messages by sender and counts how many are still unread. With
+ * `newslettersOnly` it looks only at mail carrying a List-Unsubscribe header,
+ * which is how bulk senders mark themselves.
+ */
+export async function senderStats(
+  account: Account,
+  p: { folder: string; since?: string; newslettersOnly: boolean; maxMessages: number },
+) {
+  const criteria: SearchObject = {};
+  if (p.newslettersOnly) criteria.header = { "list-unsubscribe": true };
+  if (p.since) criteria.since = toDate(p.since, "since");
+  if (Object.keys(criteria).length === 0) criteria.all = true;
+
+  return withMailbox(account, p.folder, async (client) => {
+    const found = await client.search(criteria, { uid: true });
+    const uids = (found || []).sort((a, b) => a - b);
+    const page = uids.slice(-p.maxMessages);
+    const senders = new Map<string, SenderStats & { latestUid: number }>();
+    if (page.length) {
+      const rows = await client.fetchAll(
+        page,
+        { uid: true, envelope: true, flags: true, internalDate: true, headers: ["list-unsubscribe"] },
+        { uid: true },
+      );
+      for (const m of rows) {
+        const from = m.envelope?.from?.[0];
+        const address = (from?.address ?? "unknown").toLowerCase();
+        const s =
+          senders.get(address) ??
+          ({ address, total: 0, unread: 0, neverOpened: true, latestUid: 0 } as SenderStats & { latestUid: number });
+        s.total += 1;
+        if (!m.flags?.has("\\Seen")) s.unread += 1;
+        if (m.uid > s.latestUid) {
+          s.latestUid = m.uid;
+          s.name = from?.name || s.name;
+          const when = m.envelope?.date ?? m.internalDate;
+          s.latest = when ? new Date(when as Date | string).toISOString().slice(0, 10) : undefined;
+          s.latestSubject = m.envelope?.subject;
+          const header = (m.headers?.toString() ?? "").replace(/\r?\n\s+/g, " ");
+          const value = /^list-unsubscribe:\s*(.+)$/im.exec(header)?.[1]?.trim();
+          s.unsubscribe = value ? value.slice(0, 300) : undefined;
+        }
+        senders.set(address, s);
+      }
+    }
+    const list = [...senders.values()]
+      .map(({ latestUid: _latestUid, ...s }) => ({ ...s, neverOpened: s.unread === s.total }))
+      .sort((a, b) => b.total - a.total);
+    return {
+      matched: uids.length,
+      analysed: page.length,
+      truncated: uids.length > page.length,
+      senders: list,
+    };
+  });
+}
+
 export type FullEmail = Summary & {
   cc?: string;
   replyTo?: string;
