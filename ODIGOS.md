@@ -34,7 +34,9 @@ MAIL_ACCOUNT_3=esy@yahoo.com kodikosefarmogis
 
 ### Hotmail / Outlook.com
 
-Η Microsoft δέχεται μόνο OAuth2, οπότε ο server χρειάζεται το id μιας εφαρμογής Azure:
+Ο εύκολος τρόπος δεν θέλει καμία ρύθμιση εδώ: στο Outlook.com άνοιξε Settings > Mail > Forwarding, βάλε προώθηση σε ένα Gmail ή Yahoo που έχεις ήδη συνδέσει και κράτα αντίγραφο. Τα νέα email εμφανίζονται πλέον σε εκείνο το mailbox. Τα παλιά μένουν πίσω, και οι απαντήσεις φεύγουν από την άλλη διεύθυνση.
+
+Για απευθείας σύνδεση ο server χρειάζεται το id μιας εφαρμογής Azure, γιατί η Microsoft δέχεται μόνο OAuth2. Η καταχώρηση θέλει λογαριασμό Azure (δωρεάν, αλλά ζητάει κινητό και κάρτα), επειδή ένας απλός λογαριασμός Hotmail δεν μπορεί να ανοίξει το Entra admin center:
 
 1. Στο Microsoft Entra admin center φτιάξε App registration που υποστηρίζει **προσωπικούς λογαριασμούς Microsoft**.
 2. Στο Authentication ενεργοποίησε το **Allow public client flows**.

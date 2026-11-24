@@ -56,7 +56,9 @@ MAIL_ACCOUNTS=[{"id":"work","provider":"custom","email":"me@example.com","passwo
 
 ### Hotmail / Outlook.com
 
-Microsoft accepts only OAuth2 for these mailboxes, so the server needs the id of an Azure app to sign in with:
+The easy way needs no setup here at all: in Outlook.com open Settings > Mail > Forwarding, forward to a Gmail or Yahoo address you have connected, and keep a copy. New mail then shows up in that mailbox. Older messages stay behind, and replies go out from the other address.
+
+To connect the mailbox directly, the server needs the id of an Azure app, because Microsoft accepts only OAuth2 here. Registering one requires an Azure account (free, but Microsoft asks for a phone number and a card), since a plain Hotmail account cannot open the Entra admin center:
 
 1. In the Microsoft Entra admin center, create an App registration that supports **personal Microsoft accounts**.
 2. Under Authentication, enable **Allow public client flows**.

@@ -76,9 +76,9 @@ export const SETUP_PAGE = String.raw`<!doctype html>
 
   <section>
     <h2>Hotmail / Outlook.com</h2>
-    <p data-t="olIntro"></p>
     <div id="olOff" hidden><p class="dim" data-t="olOff"></p></div>
     <div id="olOn" hidden>
+      <p data-t="olIntro"></p>
       <label for="olEmail" data-t="olEmail"></label>
       <input id="olEmail" type="email" autocomplete="off" placeholder="you@hotmail.com">
       <button class="primary" id="olGo" data-t="olGo"></button>
@@ -128,7 +128,7 @@ export const SETUP_PAGE = String.raw`<!doctype html>
       add3: "For another mailbox use the next number. Any mix of providers and any number of Gmail accounts works.",
       add4: "Redeploy (Vercel: Deployments > latest > Redeploy), then reload this page.",
       olIntro: "Microsoft does not accept passwords for these mailboxes, so you sign in once with a code.",
-      olOff: "Not available on this server yet: the OUTLOOK_CLIENT_ID variable is missing. See the README section about Outlook.",
+      olOff: "Easiest: in Outlook.com open Settings > Mail > Forwarding and forward to a mailbox you connected above. Direct sign-in is not available on this server because the OUTLOOK_CLIENT_ID variable is missing; the README explains how to add it.",
       olEmail: "Your Hotmail / Outlook address", olGo: "Connect",
       olOpen: "Open", olType: "and type this code:", olWait: "Waiting for you to finish signing in...",
       olDone: "Signed in. Add this variable in your hosting settings:",
@@ -155,7 +155,7 @@ export const SETUP_PAGE = String.raw`<!doctype html>
       add3: "Για το επόμενο mailbox βάλε τον επόμενο αριθμό. Δουλεύει με όποιον συνδυασμό παρόχων και όσα Gmail θες.",
       add4: "Κάνε Redeploy (Vercel: Deployments > το τελευταίο > Redeploy) και ξαναφόρτωσε αυτή τη σελίδα.",
       olIntro: "Η Microsoft δεν δέχεται κωδικούς για αυτά τα mailbox, οπότε συνδέεσαι μία φορά με έναν κωδικό.",
-      olOff: "Δεν είναι ακόμα διαθέσιμο σε αυτόν τον server: λείπει η μεταβλητή OUTLOOK_CLIENT_ID. Δες την ενότητα για το Outlook στο README.",
+      olOff: "Ο εύκολος τρόπος: στο Outlook.com άνοιξε Settings > Mail > Forwarding και βάλε προώθηση σε ένα mailbox που έχεις συνδέσει παραπάνω. Η απευθείας σύνδεση δεν είναι διαθέσιμη σε αυτόν τον server γιατί λείπει η μεταβλητή OUTLOOK_CLIENT_ID· το README εξηγεί πώς προστίθεται.",
       olEmail: "Η διεύθυνση Hotmail / Outlook σου", olGo: "Σύνδεση",
       olOpen: "Άνοιξε το", olType: "και γράψε αυτόν τον κωδικό:", olWait: "Περιμένω να ολοκληρώσεις τη σύνδεση...",
       olDone: "Συνδέθηκες. Πρόσθεσε αυτή τη μεταβλητή στις ρυθμίσεις του hosting:",
