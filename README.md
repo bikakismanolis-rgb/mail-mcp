@@ -16,6 +16,7 @@ You run it in your own hosting account. Your passwords and mail never pass throu
 | `sender_stats` | Messages per sender and how many you never opened, for newsletter cleanup |
 | `create_draft` | Save a new message or a reply to Drafts. Nothing is sent |
 | `mark_emails`, `move_emails` | Read/unread, star, move, archive, trash |
+| `move_matching` | Move everything from one sender (with date and unread filters); counts first, moves only when told |
 | `send_email` | Only exists if you set `MAIL_ALLOW_SEND=true` |
 | `search`, `fetch` | The pair ChatGPT expects for searching across all inboxes |
 

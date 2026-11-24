@@ -68,7 +68,7 @@ test("a real MCP client can list tools and accounts; passwords never leak", asyn
   const names = (await client.listTools()).tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
     "create_draft", "fetch", "list_accounts", "list_folders",
-    "mark_emails", "move_emails", "read_email", "search", "search_emails", "sender_stats",
+    "mark_emails", "move_emails", "move_matching", "read_email", "search", "search_emails", "sender_stats",
   ]);
   const res = await client.callTool({ name: "list_accounts", arguments: {} });
   const text = (res.content as { text: string }[])[0].text;

@@ -331,6 +331,89 @@ export async function markEmails(
   });
 }
 
+/** Turns "trash" / "archive" / "spam" into this mailbox's real folder path. */
+async function resolveDestination(client: ImapFlow, destination: string) {
+  const special: Record<string, [string, string[]]> = {
+    trash: ["\\Trash", ["trash", "deleted", "deleted items", "bin"]],
+    archive: ["\\Archive", ["archive", "[gmail]/all mail"]],
+    spam: ["\\Junk", ["spam", "junk", "bulk", "bulk mail"]],
+  };
+  const key = destination.toLowerCase();
+  if (!special[key]) return destination;
+  // Gmail has no \Archive folder; "All Mail" plays that part.
+  const [use, names] = special[key];
+  const boxes = await client.list();
+  const hit =
+    boxes.find((b) => b.specialUse === use) ??
+    (key === "archive" ? boxes.find((b) => b.specialUse === "\\All") : undefined) ??
+    boxes.find((b) => names.includes(b.path.toLowerCase()));
+  if (!hit) throw new Error(`this account has no ${key} folder; pass an exact folder path instead`);
+  return hit.path;
+}
+
+export type MoveMatchingParams = {
+  folder: string;
+  /** Exact sender address, or "@domain" for every address at that domain. */
+  from: string;
+  since?: string;
+  before?: string;
+  unreadOnly: boolean;
+  destination: string;
+  dryRun: boolean;
+  max: number;
+};
+
+/**
+ * Moves every message from one sender that matches the filters. The server's
+ * own FROM search can be fuzzy, so each hit is re-checked against the real
+ * sender address before anything moves. With `dryRun` it only counts.
+ */
+export async function moveMatching(account: Account, p: MoveMatchingParams) {
+  const wanted = p.from.trim().toLowerCase();
+  if (!/^[^@\s]*@[^@\s]+\.[^@\s]+$/.test(wanted)) {
+    throw new Error("`from` must be a full address (news@example.com) or a domain (@example.com)");
+  }
+  const criteria: SearchObject = { from: wanted };
+  if (p.since) criteria.since = toDate(p.since, "since");
+  if (p.before) criteria.before = toDate(p.before, "before");
+  if (p.unreadOnly) criteria.seen = false;
+
+  return withMailbox(account, p.folder, async (client) => {
+    const found = ((await client.search(criteria, { uid: true })) || []).sort((a, b) => a - b);
+    const rows = found.length
+      ? await client.fetchAll(found, { uid: true, envelope: true, internalDate: true }, { uid: true })
+      : [];
+    const hits = rows.filter((m) => {
+      const address = (m.envelope?.from?.[0]?.address ?? "").toLowerCase();
+      return wanted.startsWith("@") ? address.endsWith(wanted) : address === wanted;
+    });
+    const day = (m: FetchMessageObject) =>
+      new Date((m.internalDate ?? m.envelope?.date ?? 0) as Date | string).toISOString().slice(0, 10);
+    const batch = hits.slice(0, p.max);
+    const result = {
+      from: wanted,
+      matched: hits.length,
+      moved: 0,
+      remaining: hits.length - batch.length,
+      dryRun: p.dryRun,
+      destination: p.destination,
+      oldest: hits.length ? day(hits[0]) : undefined,
+      newest: hits.length ? day(hits[hits.length - 1]) : undefined,
+      sampleSubjects: hits.slice(-3).map((m) => m.envelope?.subject ?? ""),
+    };
+    if (p.dryRun || batch.length === 0) return result;
+
+    const target = await resolveDestination(client, p.destination);
+    const uids = batch.map((m) => m.uid);
+    for (let i = 0; i < uids.length; i += 500) {
+      const res = await client.messageMove(uids.slice(i, i + 500), target, { uid: true });
+      if (!res) throw new Error(`move to "${target}" failed after ${result.moved} messages`);
+      result.moved += Math.min(500, uids.length - i);
+    }
+    return { ...result, destination: target };
+  });
+}
+
 export async function moveEmails(
   account: Account,
   folder: string,
@@ -338,24 +421,7 @@ export async function moveEmails(
   destination: string,
 ) {
   return withMailbox(account, folder, async (client) => {
-    let target = destination;
-    const special: Record<string, [string, string[]]> = {
-      trash: ["\\Trash", ["trash", "deleted", "deleted items", "bin"]],
-      archive: ["\\Archive", ["archive", "[gmail]/all mail"]],
-      spam: ["\\Junk", ["spam", "junk", "bulk", "bulk mail"]],
-    };
-    const key = destination.toLowerCase();
-    if (special[key]) {
-      // Gmail has no \Archive folder; "All Mail" plays that part.
-      const [use, names] = special[key];
-      const boxes = await client.list();
-      const hit =
-        boxes.find((b) => b.specialUse === use) ??
-        (key === "archive" ? boxes.find((b) => b.specialUse === "\\All") : undefined) ??
-        boxes.find((b) => names.includes(b.path.toLowerCase()));
-      if (!hit) throw new Error(`this account has no ${key} folder; pass an exact folder path instead`);
-      target = hit.path;
-    }
+    const target = await resolveDestination(client, destination);
     const res = await client.messageMove(uids, target, { uid: true });
     if (!res) throw new Error(`move to "${target}" failed`);
     return { moved: uids.length, destination: target };

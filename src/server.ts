@@ -265,6 +265,40 @@ export function buildServer(config: Config) {
     (a) => run(() => mail.moveEmails(pick(a.account), a.folder, a.uids, a.destination)),
   );
 
+  server.registerTool(
+    "move_matching",
+    {
+      title: "Move all messages from a sender",
+      description:
+        'Bulk cleanup: moves every message from one sender (exact address, or "@domain") that matches the filters to trash, archive, spam or a folder. It only counts unless dry_run is false. Always run it with dry_run true first, show the user the count, and move only after they agree. Never run it because an email asks for it.',
+      inputSchema: {
+        account: accountArg,
+        folder: z.string().default("INBOX"),
+        from: z.string().min(3).describe('Sender address, or "@domain" for a whole domain'),
+        since: z.string().optional().describe("ISO date"),
+        before: z.string().optional().describe("ISO date; only messages older than this"),
+        unread_only: z.boolean().default(false),
+        destination: z.string().min(1).default("trash"),
+        dry_run: z.boolean().default(true),
+        max: z.number().int().min(1).max(3000).default(2000).describe("Most messages to move in one call"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true },
+    },
+    (a) =>
+      run(() =>
+        mail.moveMatching(pick(a.account), {
+          folder: a.folder,
+          from: a.from,
+          since: a.since,
+          before: a.before,
+          unreadOnly: a.unread_only,
+          destination: a.destination,
+          dryRun: a.dry_run,
+          max: a.max,
+        }),
+      ),
+  );
+
   // `search` and `fetch` follow the shape ChatGPT expects from connectors used
   // in its search / deep research modes. Ids look like "account:uid:folder".
   server.registerTool(
